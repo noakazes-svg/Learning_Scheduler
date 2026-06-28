@@ -8,6 +8,8 @@ from .models import (
     Competency,
     Lesson,
     LearningPath,
+    LearningPathPrerequisite,
+    Preferences,
     Review,
     ReviewResult,
     User,
@@ -34,6 +36,10 @@ def create_user(session: Session, first_name: str, last_name: str, email: str, t
 
 def get_user(session: Session) -> Optional[User]:
     return session.exec(select(User)).first()
+
+
+def set_target_role(session: Session, user_id: int, target_role: str) -> Optional[User]:
+    return update_user(session, user_id, target_role=target_role)
 
 
 def update_user(session: Session, user_id: int, **fields) -> Optional[User]:
@@ -353,3 +359,65 @@ def delete_events_for_week(session: Session, week_start: datetime) -> int:
 
 def get_all_events(session: Session) -> list[CalendarEvent]:
     return list(session.exec(select(CalendarEvent)))
+
+
+# ---------------------------------------------------------------------------
+# Preferences (Task 2)
+# ---------------------------------------------------------------------------
+
+def upsert_preferences(session: Session, user_id: int, **fields) -> Preferences:
+    prefs = session.exec(select(Preferences).where(Preferences.user_id == user_id)).first()
+    if prefs:
+        for key, value in fields.items():
+            setattr(prefs, key, value)
+    else:
+        prefs = Preferences(user_id=user_id, **fields)
+    session.add(prefs)
+    session.commit()
+    session.refresh(prefs)
+    return prefs
+
+
+def get_preferences(session: Session, user_id: int) -> Optional[Preferences]:
+    return session.exec(select(Preferences).where(Preferences.user_id == user_id)).first()
+
+
+# ---------------------------------------------------------------------------
+# LearningPath prerequisites (Task 3)
+# ---------------------------------------------------------------------------
+
+def add_prerequisite(
+    session: Session, learning_path_id: int, prerequisite_path_id: int
+) -> LearningPathPrerequisite:
+    prereq = LearningPathPrerequisite(
+        learning_path_id=learning_path_id,
+        prerequisite_path_id=prerequisite_path_id,
+    )
+    session.add(prereq)
+    session.commit()
+    session.refresh(prereq)
+    return prereq
+
+
+def get_prerequisites(session: Session, learning_path_id: int) -> list[LearningPathPrerequisite]:
+    return list(
+        session.exec(
+            select(LearningPathPrerequisite).where(
+                LearningPathPrerequisite.learning_path_id == learning_path_id
+            )
+        )
+    )
+
+
+def prerequisites_met(session: Session, learning_path_id: int) -> bool:
+    """Return True if all prerequisite paths have at least one Completed lesson."""
+    prereqs = get_prerequisites(session, learning_path_id)
+    for prereq in prereqs:
+        completed = session.exec(
+            select(Lesson)
+            .where(Lesson.learning_path_id == prereq.prerequisite_path_id)
+            .where(Lesson.status == "Completed")
+        ).first()
+        if not completed:
+            return False
+    return True

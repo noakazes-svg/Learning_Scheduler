@@ -30,6 +30,7 @@ class PlanningResult(BaseModel):
     learning_paths_created: list[str]
     lessons_created: list[int]   # lesson IDs
     skipped_topics: list[str]
+    no_gaps: bool = False        # True when no competency gaps were found
 
 
 class ReviewContent(BaseModel):
@@ -70,8 +71,9 @@ class Planner:
 
         gaps = crud.get_competency_gaps(self.session, user.user_id)
         if not gaps:
+            # Task 8: no gaps found — signal caller to prompt user for a more aspirational role
             return PlanningResult(
-                learning_paths_created=[], lessons_created=[], skipped_topics=[]
+                learning_paths_created=[], lessons_created=[], skipped_topics=[], no_gaps=True
             )
 
         gap_summary = "\n".join(
@@ -114,6 +116,11 @@ class Planner:
                     self.session, user.user_id, plan.learning_path_title
                 )
                 paths_created.append(plan.learning_path_title)
+
+            # Task 7: skip if prerequisites are not yet met
+            if not crud.prerequisites_met(self.session, path.learning_path_id):
+                skipped.append(f"{plan.topic}: prerequisites not completed")
+                continue
 
             # Scraper assembles the lesson
             try:
@@ -242,6 +249,36 @@ class Planner:
         if comp:
             new_level = max(1, min(5, comp.current_level + delta))
             crud.update_competency_level(self.session, competency_id, new_level)
+
+    # Task 9 ----------------------------------------------------------------
+
+    def replan_after_failed_review(self, lesson_id: int) -> PlanningResult:
+        """Generate remedial lessons for the failed lesson's topic and kick off a new cycle."""
+        lesson = crud.get_lesson(self.session, lesson_id)
+        if not lesson:
+            raise ValueError(f"Lesson {lesson_id} not found.")
+
+        # Lower the current_level for the matching competency to widen the gap
+        user = crud.get_user(self.session)
+        if user:
+            comps = crud.get_competencies(self.session, user.user_id)
+            for comp in comps:
+                if comp.skill_name.lower() == (lesson.category or "").lower():
+                    new_level = max(1, comp.current_level - 1)
+                    crud.update_competency_level(self.session, comp.competency_id, new_level)
+                    break
+
+        return self.run_planning_cycle(max_topics=1)
+
+    # Task 10 ---------------------------------------------------------------
+
+    def replan_on_role_change(self, new_target_role: str) -> PlanningResult:
+        """Update the user's target role and trigger an immediate replan."""
+        user = crud.get_user(self.session)
+        if not user:
+            raise ValueError("No user found.")
+        crud.set_target_role(self.session, user.user_id, new_target_role)
+        return self.run_planning_cycle()
 
 
 # ---------------------------------------------------------------------------

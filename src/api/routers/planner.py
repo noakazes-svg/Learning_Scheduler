@@ -21,6 +21,10 @@ class CompetencyDeltaRequest(BaseModel):
     delta: int
 
 
+class RoleChangeRequest(BaseModel):
+    target_role: str
+
+
 @router.post("/cycle", response_model=PlanningResult)
 def run_cycle(body: CycleRequest, session: Session = Depends(get_session)):
     try:
@@ -54,3 +58,21 @@ def evaluate_review(
 def apply_delta(body: CompetencyDeltaRequest, session: Session = Depends(get_session)):
     Planner(session).apply_competency_delta(body.competency_id, body.delta)
     return {"applied": True, "competency_id": body.competency_id, "delta": body.delta}
+
+
+@router.post("/lessons/{lesson_id}/replan-after-failure", response_model=PlanningResult)
+def replan_after_failure(lesson_id: int, session: Session = Depends(get_session)):
+    """Task 9: Generate remedial lessons after a failed review."""
+    try:
+        return Planner(session).replan_after_failed_review(lesson_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/role-change", response_model=PlanningResult)
+def role_change(body: RoleChangeRequest, session: Session = Depends(get_session)):
+    """Task 10: Update target role and trigger an immediate replan."""
+    try:
+        return Planner(session).replan_on_role_change(body.target_role)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

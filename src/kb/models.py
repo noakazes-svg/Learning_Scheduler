@@ -11,7 +11,19 @@ class User(SQLModel, table=True):
     last_name: str
     email: str = Field(unique=True)
     timezone: str
+    target_role: Optional[str] = None   # Task 1: e.g. "Data Analyst", "ML Engineer"
     created_date: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Preferences(SQLModel, table=True):
+    __tablename__ = "preferences"
+
+    preferences_id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.user_id", unique=True)
+    learning_style: Optional[str] = None       # e.g. Visual | Reading | Hands-on
+    weekly_hours: Optional[int] = None         # hours available per week
+    time_availability: Optional[str] = None    # e.g. "Mornings", "Evenings", "Flexible"
+    topics_of_interest: Optional[str] = None   # comma-separated
 
 
 class LearningPath(SQLModel, table=True):
@@ -22,6 +34,14 @@ class LearningPath(SQLModel, table=True):
     title: str
     status: str = "Active"
     created_date: datetime = Field(default_factory=datetime.utcnow)
+
+
+class LearningPathPrerequisite(SQLModel, table=True):
+    __tablename__ = "learning_path_prerequisites"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    learning_path_id: int = Field(foreign_key="learning_paths.learning_path_id")
+    prerequisite_path_id: int = Field(foreign_key="learning_paths.learning_path_id")
 
 
 class Lesson(SQLModel, table=True):
@@ -39,8 +59,8 @@ class Lesson(SQLModel, table=True):
     evidence_type: Optional[str] = None
     evidence_date: Optional[date] = None
     # lifecycle
-    status: str = "Planned"       # Planned | In Progress | Completed | Archived
-    lesson_type: str = "PlannedLesson"  # CompletedExperience | PlannedLesson | ManualLesson
+    status: str = "Planned"            # Planned | In Progress | Completed | Archived
+    lesson_type: str = "PlannedLesson" # CompletedExperience | PlannedLesson | ManualLesson
     completed_date: Optional[date] = None
     created_date: datetime = Field(default_factory=datetime.utcnow)
 

@@ -15,6 +15,7 @@ from ...kb.crud import (
 )
 from ...kb.database import get_session
 from ...kb.models import Lesson
+from ...planner.planner import Planner
 
 router = APIRouter(prefix="/lessons", tags=["lessons"])
 
@@ -85,3 +86,19 @@ def patch_status(lesson_id: int, body: LessonStatusUpdate, session: Session = De
     if not updated:
         raise HTTPException(status_code=404, detail="Lesson not found.")
     return updated
+
+
+@router.post("/{lesson_id}/complete")
+def complete_lesson(lesson_id: int, session: Session = Depends(get_session)):
+    """Mark lesson completed and immediately generate its review."""
+    lesson = update_lesson_status(session, lesson_id, "Completed", date.today())
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found.")
+    review, content = Planner(session).generate_review(lesson_id)
+    return {
+        "lesson_id": lesson_id,
+        "status": "Completed",
+        "review_id": review.review_id,
+        "review_type": review.review_type,
+        "review_content": content,
+    }

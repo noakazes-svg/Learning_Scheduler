@@ -55,6 +55,9 @@ class Scheduler:
 
     def build_weekly_schedule(self, week_start: datetime) -> ScheduleResult:
         """Clear the week's existing schedule and rebuild it from planned lessons."""
+        user = crud.get_user(self.session)
+        self._timezone = (user.timezone if user else "UTC")
+
         # 1. Wipe existing KB events for this week
         crud.delete_events_for_week(self.session, week_start)
 
@@ -162,6 +165,7 @@ class Scheduler:
 
     def _create_google_event(self, lesson: Lesson, start: datetime, end: datetime) -> str:
         """Create a Google Calendar event and return its event ID."""
+        tz = getattr(self, "_timezone", "UTC")
         event_body = {
             "summary": f"Learn: {lesson.topic}",
             "description": (
@@ -169,8 +173,8 @@ class Scheduler:
                 f"Difficulty: {lesson.difficulty or 'N/A'}\n\n"
                 f"Objectives:\n{lesson.objectives or ''}"
             ),
-            "start": {"dateTime": _to_rfc3339(start), "timeZone": "UTC"},
-            "end": {"dateTime": _to_rfc3339(end), "timeZone": "UTC"},
+            "start": {"dateTime": _to_rfc3339(start), "timeZone": tz},
+            "end": {"dateTime": _to_rfc3339(end), "timeZone": tz},
             "colorId": "7",  # Peacock blue
         }
         created = self.service.events().insert(calendarId="primary", body=event_body).execute()
