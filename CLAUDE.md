@@ -1,0 +1,29 @@
+# Learning Scheduler — Claude Working Notes
+
+## Design Reference
+All system design lives in [project_architecture/DESIGN.md](project_architecture/DESIGN.md).  
+That file is the single source of truth for:
+- System overview and objectives
+- Component descriptions (Scraper, KB, Planner, Scheduler)
+- Data model / ERD
+- All process flows (Onboarding, Weekly Planning, Lesson Completion & Review)
+
+**When a design decision changes, update DESIGN.md before or immediately after implementing it.**
+
+## Project Structure
+```
+6_Learning_Scheduler/
+├── project_architecture/
+│   ├── DESIGN.md              ← authoritative design doc (read this first)
+│   ├── Learning_Scheduler_v4.docx  ← original HLD (superseded by DESIGN.md)
+│   └── maim flows/            ← original diagram images (superseded by DESIGN.md)
+└── CLAUDE.md                  ← this file
+```
+
+## Key Decisions
+- KB is SQLite; lesson metadata in DB, lesson content in files.
+- Scheduler supports Google Calendar only.
+- Weekly cycle runs every Sunday at 07:00.
+- Scheduler window: 09:00–18:00.
+- Competency scale: 1–5.
+- LessonType: CompletedExperience | PlannedLesson | ManualLesson.

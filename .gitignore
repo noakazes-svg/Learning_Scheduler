@@ -1,0 +1,22 @@
+# Google Drive sync artifacts
+desktop.ini
+Thumbs.db
+
+# Google Docs (not versionable as plain text)
+*.gdoc
+*.gsheet
+*.gslides
+
+# Original binary source files (superseded by DESIGN.md)
+project_architecture/Learning_Scheduler_v4.docx
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+
+# OS
+.DS_Store
