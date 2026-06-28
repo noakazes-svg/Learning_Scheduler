@@ -19,5 +19,9 @@ __pycache__/
 venv/
 .env
 
+# Runtime data (DB + generated lesson files)
+data/learning_scheduler.db
+data/lessons/*.md
+
 # OS
 .DS_Store

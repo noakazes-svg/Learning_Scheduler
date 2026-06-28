@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+aiosqlite
+anthropic
+tavily-python
+google-api-python-client
+google-auth-oauthlib
+python-dotenv
+httpx
