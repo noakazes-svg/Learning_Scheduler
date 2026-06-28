@@ -1,0 +1,226 @@
+import os
+from typing import Optional
+
+import anthropic
+from dotenv import load_dotenv
+from pydantic import BaseModel
+from tavily import TavilyClient
+
+load_dotenv()
+
+MODEL = "claude-sonnet-4-6"
+
+
+# ---------------------------------------------------------------------------
+# Output schemas
+# ---------------------------------------------------------------------------
+
+class Exercise(BaseModel):
+    title: str
+    description: str
+    type: str  # coding | written | project | quiz
+
+
+class AssembledLesson(BaseModel):
+    topic: str
+    category: str
+    difficulty: str          # Beginner | Intermediate | Advanced
+    duration_minutes: int
+    objectives: list[str]
+    content: str             # Full lesson in markdown
+    exercises: list[Exercise]
+    review_questions: list[str]
+    sources: list[str]
+
+
+class JobListing(BaseModel):
+    title: str
+    company: Optional[str] = None
+    description: str
+    required_skills: list[str]
+    url: str
+
+
+# ---------------------------------------------------------------------------
+# Scraper
+# ---------------------------------------------------------------------------
+
+class Scraper:
+    def __init__(self):
+        self.tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+        self.claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+    def assemble_lesson(self, topic: str, context: str = "") -> AssembledLesson:
+        """Search for material on a topic and assemble it into a structured lesson."""
+        results = self.tavily.search(
+            query=f"{topic} tutorial guide learn",
+            search_depth="advanced",
+            max_results=5,
+            include_raw_content=True,
+        )
+
+        search_context = "\n\n".join(
+            f"Source: {r['url']}\nTitle: {r['title']}\n{r.get('content', '')}"
+            for r in results.get("results", [])
+        )
+
+        if not search_context.strip():
+            raise ValueError(f"No search results found for topic: {topic}")
+
+        user_message = (
+            f"Topic: {topic}\n"
+            + (f"Learning context: {context}\n" if context else "")
+            + f"\nResearch material:\n{search_context}"
+        )
+
+        response = self.claude.messages.create(
+            model=MODEL,
+            max_tokens=4096,
+            system=(
+                "You are an expert instructional designer. Given research material, "
+                "create a complete, well-structured lesson for a professional learner. "
+                "Use markdown for the content. Be practical and concise."
+            ),
+            tools=[_LESSON_TOOL],
+            tool_choice={"type": "tool", "name": "create_lesson"},
+            messages=[{"role": "user", "content": user_message}],
+        )
+
+        tool_use = next(b for b in response.content if b.type == "tool_use")
+        sources = [r["url"] for r in results.get("results", [])]
+
+        data = tool_use.input
+        return AssembledLesson(
+            topic=topic,
+            sources=sources,
+            exercises=[Exercise(**e) for e in data.pop("exercises", [])],
+            **data,
+        )
+
+    def search_job_listings(self, role: str, max_results: int = 5) -> list[JobListing]:
+        """Search for public job listings for a role and return structured data."""
+        results = self.tavily.search(
+            query=f"{role} job description requirements skills",
+            search_depth="advanced",
+            max_results=max_results,
+        )
+
+        search_context = "\n\n".join(
+            f"URL: {r['url']}\nTitle: {r['title']}\n{r.get('content', '')}"
+            for r in results.get("results", [])
+        )
+
+        if not search_context.strip():
+            return []
+
+        response = self.claude.messages.create(
+            model=MODEL,
+            max_tokens=2048,
+            tools=[_JOB_LISTINGS_TOOL],
+            tool_choice={"type": "tool", "name": "extract_job_listings"},
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Extract structured job listing data for the role: {role}\n\n"
+                    f"Search results:\n{search_context}"
+                ),
+            }],
+        )
+
+        tool_use = next(b for b in response.content if b.type == "tool_use")
+        return [JobListing(**item) for item in tool_use.input.get("listings", [])]
+
+
+# ---------------------------------------------------------------------------
+# Claude tool definitions
+# ---------------------------------------------------------------------------
+
+_LESSON_TOOL = {
+    "name": "create_lesson",
+    "description": "Create a structured lesson from research material.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "category": {
+                "type": "string",
+                "description": "Subject area, e.g. Python, SQL, Data Analysis, Machine Learning",
+            },
+            "difficulty": {
+                "type": "string",
+                "enum": ["Beginner", "Intermediate", "Advanced"],
+            },
+            "duration_minutes": {
+                "type": "integer",
+                "description": "Estimated minutes to complete the lesson",
+            },
+            "objectives": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "2–4 clear learning objectives",
+            },
+            "content": {
+                "type": "string",
+                "description": (
+                    "Full lesson content in markdown. Include explanations, "
+                    "examples, and code snippets where relevant."
+                ),
+            },
+            "exercises": {
+                "type": "array",
+                "description": "1–3 practical exercises",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "description": {"type": "string"},
+                        "type": {
+                            "type": "string",
+                            "enum": ["coding", "written", "project", "quiz"],
+                        },
+                    },
+                    "required": ["title", "description", "type"],
+                },
+            },
+            "review_questions": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "3–5 questions to assess understanding",
+            },
+        },
+        "required": [
+            "category", "difficulty", "duration_minutes",
+            "objectives", "content", "exercises", "review_questions",
+        ],
+    },
+}
+
+_JOB_LISTINGS_TOOL = {
+    "name": "extract_job_listings",
+    "description": "Extract structured job listing data from search results.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "listings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "company": {"type": "string"},
+                        "description": {
+                            "type": "string",
+                            "description": "Summary of the role and its responsibilities",
+                        },
+                        "required_skills": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "url": {"type": "string"},
+                    },
+                    "required": ["title", "description", "required_skills", "url"],
+                },
+            }
+        },
+        "required": ["listings"],
+    },
+}
