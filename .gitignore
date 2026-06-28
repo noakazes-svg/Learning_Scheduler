@@ -9,6 +9,7 @@ Thumbs.db
 
 # Original binary source files (superseded by DESIGN.md)
 project_architecture/Learning_Scheduler_v4.docx
+project_architecture/maim flows/
 
 # Python
 __pycache__/
