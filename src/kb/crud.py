@@ -16,6 +16,9 @@ from .models import (
 _LESSON_CONTENT_DIR = Path(__file__).parent.parent.parent / "data" / "lessons"
 _LESSON_CONTENT_DIR.mkdir(parents=True, exist_ok=True)
 
+_REVIEW_CONTENT_DIR = Path(__file__).parent.parent.parent / "data" / "reviews"
+_REVIEW_CONTENT_DIR.mkdir(parents=True, exist_ok=True)
+
 
 # ---------------------------------------------------------------------------
 # User
@@ -239,6 +242,20 @@ def upsert_competency(
         session.refresh(existing)
         return existing
     return create_competency(session, user_id, skill_name, current_level, target_level, **fields)
+
+
+# Review content stored as JSON files on disk (questions, exercises, instructions)
+def save_review_content(review_id: int, content: dict) -> None:
+    import json
+    (_REVIEW_CONTENT_DIR / f"{review_id}.json").write_text(
+        json.dumps(content, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def load_review_content(review_id: int) -> Optional[dict]:
+    import json
+    path = _REVIEW_CONTENT_DIR / f"{review_id}.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
 
 
 # ---------------------------------------------------------------------------
