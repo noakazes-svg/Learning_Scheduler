@@ -25,62 +25,77 @@ The Knowledge Base serves as the system of record, while the review process serv
 
 ### Scraper
 
-Responsible for obtaining web data to support the requirements of the other components. Receives requests to look up specific, defined types of web data, performs searches, and returns results to the requester.
+**High-Level Description:** The component is responsible for obtaining web data in order to support the requirements of the different components. The component receives requests to look up specific, defined types of web data, performs searches to obtain that data, and returns it to the requester.
 
-**Main process flows:**
-- Obtain public job listings for a specified role/title and return contents and metadata of all applicable job postings.
-- Look up lesson material / available training related to a specific subject and return it.
-- Assemble lessons based on requested topics using external learning resources and AI-generated summaries; generate lesson metadata, exercises, and review material; return completed lessons to the Planner.
+**Main Process Flows:**
+- Obtaining public job listings — the component receives requests to obtain public job listings for a specified role/title and searches for job descriptions matching that role/title and returns the contents and metadata of all applicable job postings.
+- Looking up lesson material / available training related to a specific subject — the component receives requests to obtain material used to learn about a specific subject and returns it.
+- Assemble lessons based on requested topics.
+- Build lesson content using external learning resources and AI-generated summaries.
+- Generate lesson metadata, exercises and review material.
+- Return completed lessons to the planner.
 
-**Dependencies:** None — component is independent, searching publicly accessible internet pages.
+**Component Dependencies:** None — component is independent, searching publicly accessible internet pages.
+
+**Data Dependencies:** Job Listings, Lessons.
 
 ### Knowledge Base (KB)
 
-Responsible for holding data about what the user knows, their competency, and their gaps. Also holds lesson contents (both completed and planned). Based on a SQLite database; lesson metadata stored in the DB, lesson contents stored in files.
+**High-Level Description:** The component is responsible for holding data about what the user knows, their competency, and what their gaps are. Additionally, the KB holds the contents of lessons, both the ones already completed by the user and ones that aren't. The component receives requests to update the list of topics according to user updates or updates from the scraper.
 
-**Main process flows:**
-- Hold and update data related to user knowledge, competency, and gaps.
-- Store lesson contents and metadata; accept lesson additions from the Scraper.
-- Receive and apply lesson completion and competency updates from the Planner.
-- Store competency evidence, learning paths, and review results.
-- Receive onboarding information from CV, LinkedIn, projects, self-assessment, and job target.
+The KB will be based on a SQLite database. KB will store lesson metadata in the DB and lesson contents in files.
 
-**Dependencies:** None — component is independent.
+**Main Process Flows:**
+- Holds data related to the knowledge of the user, their competency, and what their gaps are. The component receives requests to update the list of topics according to user updates or updates from the scraper.
+- Holds contents of lessons and their associated metadata. The component receives requests to add lessons from the scraper.
+- Receives requests to update completion of user lessons from the planner, and update user competency of topics.
+- Store competency evidence.
+- Store learning paths.
+- Store review results.
+- Receive onboarding information from CV, LinkedIn, projects, self-assessment and job target.
 
-**Data:** Lessons, Topic Competency, Learning Paths, Competency Evidence, Review Results.
+**Component Dependencies:** None — component is independent.
+
+**Data Dependencies:** Lessons, Topic Competency, Learning Paths, Competency Evidence, Review Results.
 
 ### Planner
 
-Responsible for getting competency gap data from the KB, sending lesson generation requests to the Scraper, and keeping the KB updated after lesson completion.
+**High-Level Description:** The component is responsible for getting data about the user competency gaps from the KB. According to the data that the component receives from the KB, the planner needs to send requests to the scraper to create lessons based on the topics that the user needs to work on.
 
-**Main process flows:**
-- Get competency gap data from the KB.
+**Main Process Flows:**
+- Getting data about the user competency gaps from the KB.
+- The planner sends requests to the scraper to create lessons.
+- After completion of lessons, the planner updates the KB on lessons status and topic competency.
 - Determine required learning paths based on competency gaps.
-- Request lesson generation for required topics from the Scraper.
-- Store generated lessons in the KB.
+- Request lesson generation for the required topics from the scraper.
 - Trigger review generation after lesson completion.
 - Update competency according to quiz and project review results.
+- Store generated lessons in the KB.
 - Generate reviews.
 
-**Dependencies:** Knowledge Base, Scraper.
+**Component Dependencies:** Knowledge Base, Scraper.
 
-**Data:** Topic Competency, Lessons.
+**Data Dependencies:** Topic Competency, Lessons.
 
 ### Scheduler
 
-Responsible for getting lesson scheduling data from the Planner and updating the user's calendar. Supports Google Calendar only.
+**High-Level Description:** The component is responsible for getting data about the lessons needed to be scheduled — their topics, their length, etc. According to the data the component receives from the planner, the scheduler needs to update the user's calendar.
 
-**Main process flows:**
-- Get data about lessons to be scheduled (topics, length, etc.).
-- Update the user calendar.
-- Operate as part of the weekly planning cycle; schedule is recreated from scratch once per week.
-- Identify free calendar slots between 09:00 and 18:00.
+The scheduler will only support Google Calendar for scheduling.
+
+**Main Process Flows:**
+- Getting data about the lessons needed to be scheduled.
+- The scheduler needs to update the user calendar.
+- The scheduler operates as part of a weekly planning cycle.
+- The schedule is recreated from scratch once per week.
+- The scheduler identifies free calendar slots between 09:00 and 18:00.
 - Manual KB updates can trigger schedule regeneration.
-- Only the next week is planned; if time is insufficient, prioritize highest-priority lessons.
+- Only the next week is planned.
+- If there is insufficient time, prioritize highest-priority lessons.
 
-**Dependencies:** Planner.
+**Component Dependencies:** Planner.
 
-**Data:** Lessons.
+**Data Dependencies:** Lessons.
 
 ---
 
