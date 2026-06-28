@@ -2,17 +2,17 @@
 
 ## System Overview
 
-The Learning Scheduler is an intelligent learning-planning system designed to help users close professional competency gaps through personalized, adaptive learning plans. The system maintains a knowledge profile of the user, including their current competencies, learning history, completed lessons, projects, certifications, career goals, and identified skill gaps. Based on this information, the system continuously generates and updates learning paths that are aligned with the user's target role and professional objectives.
+### System Description
 
-The system operates through a weekly planning cycle that analyzes the user's current state, identifies competency gaps, prioritizes learning topics, generates lessons, and schedules learning activities into available calendar slots. The planning cycle runs automatically every Sunday at 07:00 and creates a learning schedule for the upcoming week. Users may also update the system manually by submitting new information such as completed courses, projects, certifications, competency updates, or changes to career goals. Significant updates trigger a re-evaluation of competencies, learning paths, and scheduling decisions.
+The Learning Scheduler is an intelligent learning-planning system designed to help users close professional competency gaps through personalized, adaptive learning plans.
+
+The system maintains a knowledge profile of the user, including their current competencies, learning history, completed lessons, projects, certifications, career goals, and identified skill gaps. Based on this information, the system continuously generates and updates learning paths that are aligned with the user's target role and professional objectives.
+
+The system operates through a weekly planning cycle that analyzes the user's current state, identifies competency gaps, prioritizes learning topics, generates lessons, and schedules learning activities into available calendar slots. The planning cycle runs automatically every Sunday at 07:00 and creates a learning schedule for the upcoming week.
+
+Users may also update the system manually by submitting new information such as completed courses, projects, certifications, competency updates, or changes to career goals. Significant updates trigger a re-evaluation of competencies, learning paths, and scheduling decisions.
 
 The system uses a feedback-driven learning model. After completing lessons, users perform reviews that may include quizzes, projects, exercises, or assessments. Review results are used to update competency estimates and recalculate future learning priorities. This feedback loop enables the system to continuously adapt learning plans based on demonstrated progress.
-
-The overall objective of the system is to provide a personalized, adaptive, and continuously evolving learning experience that helps users efficiently progress toward their target professional roles.
-
----
-
-## Components
 
 The system is composed of four primary components:
 
@@ -22,6 +22,14 @@ The system is composed of four primary components:
 - **Scheduler** — allocates learning activities into available calendar slots and maintains the weekly learning schedule.
 
 The Knowledge Base serves as the system of record, while the review process serves as the primary feedback mechanism that continuously improves competency estimates and drives future planning decisions.
+
+The overall objective of the system is to provide a personalized, adaptive, and continuously evolving learning experience that helps users efficiently progress toward their target professional roles.
+
+---
+
+## Primary Processes
+
+## Components
 
 ### Scraper
 
