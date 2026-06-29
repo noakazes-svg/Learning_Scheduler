@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -13,9 +14,15 @@ from ..kb import crud
 from ..kb.models import Lesson
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-WORK_START_HOUR = 9    # 09:00
-WORK_END_HOUR = 18     # 18:00
 BUFFER_MINUTES = 15    # gap between consecutive lessons
+
+# User-selectable time blocks (start_hour, start_min, end_hour, end_min)
+TIME_BLOCKS = {
+    "morning":   (9,  0,  12, 30),
+    "afternoon": (13, 30, 16, 30),
+    "evening":   (17, 0,  20, 0),
+}
+DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu"]
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +131,7 @@ class Scheduler:
         return sorted(lessons, key=lambda l: l.duration_minutes or 60)
 
     def _get_free_slots(self, week_start: datetime) -> list[TimeSlot]:
-        """Query Google Calendar freebusy and return free 09:00–18:00 windows."""
+        """Query Google Calendar freebusy and return free windows within the user's time blocks."""
         week_end = week_start + timedelta(days=5)   # Sun–Thu only
 
         result = self.service.freebusy().query(body={
@@ -139,27 +146,48 @@ class Scheduler:
             for b in busy_raw
         ]
 
+        # Load user time-block preferences
+        user = crud.get_user(self.session)
+        availability: dict = {}
+        if user:
+            prefs = crud.get_preferences(self.session, user.user_id)
+            if prefs and prefs.time_availability:
+                try:
+                    availability = json.loads(prefs.time_availability)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
         free_slots: list[TimeSlot] = []
 
-        for day_offset in range(5):   # Sun–Thu (5 Israeli work days)
+        for day_offset in range(5):   # Sun–Thu
             day = week_start + timedelta(days=day_offset)
-            day_start = day.replace(hour=WORK_START_HOUR, minute=0, second=0, microsecond=0)
-            day_end = day.replace(hour=WORK_END_HOUR, minute=0, second=0, microsecond=0)
+            day_name = DAY_NAMES[day_offset]
 
-            # Busy periods that overlap this day's work window
-            day_busy = sorted(
-                (s, e) for s, e in busy
-                if s < day_end and e > day_start
-            )
+            # Default: all blocks if user hasn't set preferences
+            selected = availability.get(day_name, list(TIME_BLOCKS.keys()))
 
-            current = day_start
-            for busy_start, busy_end in day_busy:
-                if busy_start > current:
-                    free_slots.append(TimeSlot(start=current, end=busy_start))
-                current = max(current, busy_end)
+            for block_name in ("morning", "afternoon", "evening"):
+                if block_name not in selected:
+                    continue
+                sh, sm, eh, em = TIME_BLOCKS[block_name]
+                block_start = day.replace(hour=sh, minute=sm, second=0, microsecond=0)
+                block_end   = day.replace(hour=eh, minute=em, second=0, microsecond=0)
 
-            if current < day_end:
-                free_slots.append(TimeSlot(start=current, end=day_end))
+                # Busy periods overlapping this block
+                block_busy = sorted(
+                    (max(s, block_start), min(e, block_end))
+                    for s, e in busy
+                    if s < block_end and e > block_start
+                )
+
+                current = block_start
+                for busy_start, busy_end in block_busy:
+                    if busy_start > current:
+                        free_slots.append(TimeSlot(start=current, end=busy_start))
+                    current = max(current, busy_end)
+
+                if current < block_end:
+                    free_slots.append(TimeSlot(start=current, end=block_end))
 
         return free_slots
 

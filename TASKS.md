@@ -25,3 +25,6 @@ All 15 tasks required to complete the planned system. No scope changes until all
 | 19 | Process | Plan-before-implement rule added to CLAUDE.md | ✅ Done |
 | 20 | Scheduler | Fix Sunday trigger — schedule current week (Sun–Thu), not next week | ✅ Done |
 | 21 | Scheduler | Mid-week replan triggers immediate rescheduling of current week | ✅ Done |
+| 22 | Preferences | Learning style: multi-select checkboxes (Visual/Reading/Hands-on/Video/Audio) | ✅ Done |
+| 23 | Preferences | Time availability: Day × block grid (Sun–Thu × Morning/Afternoon/Evening) | ✅ Done |
+| 24 | Scheduler | Scheduler respects user time blocks (09:00–12:30 / 13:30–16:30 / 17:00–20:00) | ✅ Done |

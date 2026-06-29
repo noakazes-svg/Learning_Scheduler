@@ -321,6 +321,16 @@ _FORM_HTML = r"""
     .badge-high{background:#fee2e2;color:#dc2626}
     .badge-medium{background:#fef3c7;color:#d97706}
     .badge-low{background:#dcfce7;color:#16a34a}
+    .style-chip{display:flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid #ddd;
+                border-radius:20px;cursor:pointer;font-size:.9rem;user-select:none;transition:.15s}
+    .style-chip:hover{border-color:#3a86ff;background:#eff6ff}
+    .style-chip input{width:auto;accent-color:#3a86ff}
+    .avail-table{width:100%;border-collapse:collapse;text-align:center}
+    .avail-table th{padding:8px;font-size:.8rem;color:#888;font-weight:600;border-bottom:2px solid #eee}
+    .avail-table th span{display:block;font-weight:400;font-size:.73rem;color:#aaa;margin-top:2px}
+    .avail-table td{padding:10px 8px;border-bottom:1px solid #f3f3f3}
+    .avail-table td:first-child{text-align:left;font-weight:600;font-size:.88rem;color:#555}
+    .avail-table input[type=checkbox]{width:18px;height:18px;accent-color:#3a86ff;cursor:pointer}
   </style>
 </head>
 <body>
@@ -429,31 +439,52 @@ _FORM_HTML = r"""
 
   <!-- ===== PANEL 3: Preferences + Submit ===== -->
   <div class="panel" id="panel3">
+
     <section>
-      <h2>Learning Preferences</h2>
-      <div class="row">
-        <div class="field"><label>Learning Style</label>
-          <select id="learning_style">
-            <option value="">— No preference —</option>
-            <option>Visual</option><option>Reading</option><option>Hands-on</option>
-          </select>
-        </div>
-        <div class="field"><label>Weekly Hours Available</label>
-          <input id="weekly_hours" type="number" min="1" max="40" placeholder="e.g. 8">
-        </div>
+      <h2>Learning Style</h2>
+      <p style="font-size:.83rem;color:#666;margin-bottom:12px">Select all that apply.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <label class="style-chip"><input type="checkbox" value="Visual"> 🎨 Visual</label>
+        <label class="style-chip"><input type="checkbox" value="Reading"> 📖 Reading</label>
+        <label class="style-chip"><input type="checkbox" value="Hands-on"> 💻 Hands-on</label>
+        <label class="style-chip"><input type="checkbox" value="Video"> 🎬 Video</label>
+        <label class="style-chip"><input type="checkbox" value="Audio"> 🎧 Audio</label>
       </div>
-      <div class="row">
-        <div class="field"><label>Preferred Time of Day</label>
-          <select id="time_availability">
-            <option value="">— No preference —</option>
-            <option>Mornings</option><option>Afternoons</option>
-            <option>Evenings</option><option>Flexible</option>
-          </select>
-        </div>
-        <div class="field"><label>Topics of Interest</label>
-          <input id="topics_of_interest" placeholder="e.g. AI, SQL, Cloud">
-        </div>
+    </section>
+
+    <section>
+      <h2>Weekly Hours Available</h2>
+      <div style="max-width:200px">
+        <input id="weekly_hours" type="number" min="1" max="40" placeholder="e.g. 8">
       </div>
+    </section>
+
+    <section>
+      <h2>Available Time Slots</h2>
+      <p style="font-size:.83rem;color:#666;margin-bottom:14px">
+        Tick the blocks when you are typically free to study.
+        The scheduler will only book lessons in these windows.
+      </p>
+      <button type="button" class="add-btn" style="margin-bottom:12px" onclick="sameForAll()">
+        Apply Sunday's selection to all days
+      </button>
+      <table class="avail-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Morning<br><span>09:00–12:30</span></th>
+            <th>Afternoon<br><span>13:30–16:30</span></th>
+            <th>Evening<br><span>17:00–20:00</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Sun</td><td><input type="checkbox" class="avail" data-day="Sun" data-block="morning" checked></td><td><input type="checkbox" class="avail" data-day="Sun" data-block="afternoon" checked></td><td><input type="checkbox" class="avail" data-day="Sun" data-block="evening"></td></tr>
+          <tr><td>Mon</td><td><input type="checkbox" class="avail" data-day="Mon" data-block="morning" checked></td><td><input type="checkbox" class="avail" data-day="Mon" data-block="afternoon" checked></td><td><input type="checkbox" class="avail" data-day="Mon" data-block="evening"></td></tr>
+          <tr><td>Tue</td><td><input type="checkbox" class="avail" data-day="Tue" data-block="morning" checked></td><td><input type="checkbox" class="avail" data-day="Tue" data-block="afternoon" checked></td><td><input type="checkbox" class="avail" data-day="Tue" data-block="evening"></td></tr>
+          <tr><td>Wed</td><td><input type="checkbox" class="avail" data-day="Wed" data-block="morning" checked></td><td><input type="checkbox" class="avail" data-day="Wed" data-block="afternoon" checked></td><td><input type="checkbox" class="avail" data-day="Wed" data-block="evening"></td></tr>
+          <tr><td>Thu</td><td><input type="checkbox" class="avail" data-day="Thu" data-block="morning" checked></td><td><input type="checkbox" class="avail" data-day="Thu" data-block="afternoon" checked></td><td><input type="checkbox" class="avail" data-day="Thu" data-block="evening"></td></tr>
+        </tbody>
+      </table>
     </section>
 
     <section>
@@ -463,8 +494,8 @@ _FORM_HTML = r"""
         <span style="font-weight:500">Book my lessons into Google Calendar</span>
       </label>
       <p style="font-size:.83rem;color:#666;margin-top:8px;padding-left:28px">
-        After onboarding, the system will scan your Google Calendar for free slots
-        (Sun–Thu, 09:00–18:00) and automatically book your first lessons as calendar events.
+        After onboarding, the system will scan your Google Calendar for free slots within
+        your selected time blocks above and automatically book your first lessons as calendar events.
         You can reschedule or delete them like any other event.
         Leave this unchecked if you prefer to schedule manually later.
       </p>
@@ -668,6 +699,35 @@ _FORM_HTML = r"""
     });
   }
 
+  // ─── Learning style ────────────────────────────────────────────────────────
+  function readLearningStyles() {
+    const checked = [...document.querySelectorAll('.style-chip input:checked')]
+      .map(el => el.value);
+    return checked.length ? checked.join(',') : '';
+  }
+
+  // ─── Time availability grid ────────────────────────────────────────────────
+  function readAvailability() {
+    const result = {};
+    document.querySelectorAll('.avail').forEach(cb => {
+      const day = cb.dataset.day;
+      if (!result[day]) result[day] = [];
+      if (cb.checked) result[day].push(cb.dataset.block);
+    });
+    return result;
+  }
+
+  function sameForAll() {
+    const sunBlocks = [...document.querySelectorAll('.avail[data-day="Sun"]')]
+      .map(cb => ({ block: cb.dataset.block, checked: cb.checked }));
+    ['Mon','Tue','Wed','Thu'].forEach(day => {
+      sunBlocks.forEach(({ block, checked }) => {
+        const cb = document.querySelector(`.avail[data-day="${day}"][data-block="${block}"]`);
+        if (cb) cb.checked = checked;
+      });
+    });
+  }
+
   // ─── Final submit ──────────────────────────────────────────────────────────
   async function submitOnboarding() {
     const btn = document.getElementById('submitBtn');
@@ -680,11 +740,11 @@ _FORM_HTML = r"""
       email:             document.getElementById('email').value.trim(),
       timezone:          document.getElementById('timezone').value.trim(),
       target_role:       document.getElementById('target_role').value.trim(),
-      learning_style:    document.getElementById('learning_style').value || null,
+      learning_style:    readLearningStyles() || null,
       weekly_hours:      document.getElementById('weekly_hours').value
                            ? parseInt(document.getElementById('weekly_hours').value) : null,
-      time_availability: document.getElementById('time_availability').value || null,
-      topics_of_interest:document.getElementById('topics_of_interest').value || null,
+      time_availability: JSON.stringify(readAvailability()),
+      topics_of_interest: null,
       schedule_this_week:document.getElementById('schedule_this_week').checked,
       skills: readSkillsFromTable(),
       projects: [],

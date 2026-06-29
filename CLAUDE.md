@@ -27,6 +27,8 @@ That file is the single source of truth for:
 - KB is SQLite; lesson metadata in DB, lesson content in files.
 - Scheduler supports Google Calendar only.
 - Weekly cycle runs every Sunday at 07:00.
-- Scheduler window: 09:00–18:00, Sun–Thu (Israeli work week).
+- Scheduler window: user-defined time blocks, Sun–Thu (Israeli work week).
+  Blocks: Morning 09:00–12:30 · Afternoon 13:30–16:30 · Evening 17:00–20:00.
+  Stored as JSON in Preferences.time_availability. Defaults to all blocks if unset.
 - Competency scale: 1–5.
 - LessonType: CompletedExperience | PlannedLesson | ManualLesson.
