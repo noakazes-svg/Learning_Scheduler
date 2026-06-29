@@ -23,3 +23,5 @@ All 15 tasks required to complete the planned system. No scope changes until all
 | 17 | Onboarding | Checkbox: clearer label + description (Sun–Thu, 09:00–18:00) | ✅ Done |
 | 18 | Scheduler | Work week changed to Sun–Thu (Israeli work days) | ✅ Done |
 | 19 | Process | Plan-before-implement rule added to CLAUDE.md | ✅ Done |
+| 20 | Scheduler | Fix Sunday trigger — schedule current week (Sun–Thu), not next week | ✅ Done |
+| 21 | Scheduler | Mid-week replan triggers immediate rescheduling of current week | ✅ Done |

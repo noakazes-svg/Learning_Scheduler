@@ -8,7 +8,7 @@ from fastapi import FastAPI
 
 from ..kb.database import get_session, init_db
 from ..planner.planner import Planner
-from ..scheduler.scheduler import Scheduler, next_sunday
+from ..scheduler.scheduler import Scheduler, current_week_sunday
 from .routers import (
     calendar,
     competencies,
@@ -61,7 +61,7 @@ async def _weekly_planner_loop() -> None:
                     log.info("Weekly planner: no competency gaps — skipping scheduling")
                 elif result.lessons_created:
                     log.info("Weekly planner: generated %d lessons — scheduling", len(result.lessons_created))
-                    Scheduler(session).build_weekly_schedule(next_sunday())
+                    Scheduler(session).build_weekly_schedule(current_week_sunday())
                 else:
                     log.info("Weekly planner: no lessons generated (all topics skipped)")
             finally:

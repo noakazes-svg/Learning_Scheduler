@@ -8,6 +8,7 @@ from sqlmodel import Session
 from ..kb import crud
 from ..kb.models import Review
 from ..scraper.scraper import Scraper
+from ..scheduler.scheduler import Scheduler, current_week_sunday
 
 load_dotenv()
 
@@ -268,7 +269,10 @@ class Planner:
                     crud.update_competency_level(self.session, comp.competency_id, new_level)
                     break
 
-        return self.run_planning_cycle(max_topics=1)
+        result = self.run_planning_cycle(max_topics=1)
+        if result.lessons_created:
+            Scheduler(self.session).build_weekly_schedule(current_week_sunday())
+        return result
 
     # Task 10 ---------------------------------------------------------------
 
@@ -278,7 +282,10 @@ class Planner:
         if not user:
             raise ValueError("No user found.")
         crud.set_target_role(self.session, user.user_id, new_target_role)
-        return self.run_planning_cycle()
+        result = self.run_planning_cycle()
+        if result.lessons_created:
+            Scheduler(self.session).build_weekly_schedule(current_week_sunday())
+        return result
 
 
 # ---------------------------------------------------------------------------

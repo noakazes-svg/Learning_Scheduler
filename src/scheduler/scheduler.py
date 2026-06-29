@@ -253,11 +253,20 @@ def _parse_dt(value: str) -> datetime:
 
 
 def next_sunday(from_dt: Optional[datetime] = None) -> datetime:
-    """Return next Sunday at 00:00 UTC (start of Israeli work week)."""
+    """Return the next (future) Sunday at 00:00 UTC — used by onboarding."""
     base = from_dt or datetime.utcnow()
-    # weekday(): Monday=0 … Sunday=6
     days_ahead = (6 - base.weekday()) % 7 or 7
     return (base + timedelta(days=days_ahead)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+
+def current_week_sunday(from_dt: Optional[datetime] = None) -> datetime:
+    """Return the most recent Sunday at 00:00 UTC — the start of the current work week."""
+    base = from_dt or datetime.utcnow()
+    # weekday(): Mon=0 … Sun=6  →  days since last Sunday = (weekday + 1) % 7
+    days_since_sunday = (base.weekday() + 1) % 7
+    return (base - timedelta(days=days_since_sunday)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
 
