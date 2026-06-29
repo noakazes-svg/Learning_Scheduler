@@ -24,8 +24,12 @@ data/learning_scheduler.db
 data/lessons/*.md
 data/reviews/*.json
 
-# Google Calendar auth token (contains credentials — never commit)
+# Google Calendar credentials and auth token (personal — never commit)
+credentials.json
 token.json
+
+# Personal documents (CV, certificates, etc.)
+personal/
 
 # OS
 .DS_Store
