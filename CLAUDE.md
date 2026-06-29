@@ -20,10 +20,13 @@ That file is the single source of truth for:
 └── CLAUDE.md                  ← this file
 ```
 
+## Working Process
+- **Always write a plan first.** Before editing any file, describe what changes and in which files. Wait for explicit approval before writing code.
+
 ## Key Decisions
 - KB is SQLite; lesson metadata in DB, lesson content in files.
 - Scheduler supports Google Calendar only.
 - Weekly cycle runs every Sunday at 07:00.
-- Scheduler window: 09:00–18:00.
+- Scheduler window: 09:00–18:00, Sun–Thu (Israeli work week).
 - Competency scale: 1–5.
 - LessonType: CompletedExperience | PlannedLesson | ManualLesson.

@@ -19,3 +19,7 @@ All 15 tasks required to complete the planned system. No scope changes until all
 | 13 | Lesson Completion | `POST /lessons/{id}/complete` — marks done and auto-triggers review generation | ✅ Done |
 | 14 | Setup | Google Calendar credentials setup guide | ✅ Done |
 | 15 | Setup | Startup validation — check all required env vars on app start | ✅ Done |
+| 16 | Onboarding | Upload CV / certificate images — Claude vision extracts skills automatically | ✅ Done |
+| 17 | Onboarding | Checkbox: clearer label + description (Sun–Thu, 09:00–18:00) | ✅ Done |
+| 18 | Scheduler | Work week changed to Sun–Thu (Israeli work days) | ✅ Done |
+| 19 | Process | Plan-before-implement rule added to CLAUDE.md | ✅ Done |

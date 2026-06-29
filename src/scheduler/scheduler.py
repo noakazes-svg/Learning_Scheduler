@@ -125,7 +125,7 @@ class Scheduler:
 
     def _get_free_slots(self, week_start: datetime) -> list[TimeSlot]:
         """Query Google Calendar freebusy and return free 09:00–18:00 windows."""
-        week_end = week_start + timedelta(days=7)
+        week_end = week_start + timedelta(days=5)   # Sun–Thu only
 
         result = self.service.freebusy().query(body={
             "timeMin": _to_rfc3339(week_start),
@@ -141,7 +141,7 @@ class Scheduler:
 
         free_slots: list[TimeSlot] = []
 
-        for day_offset in range(7):
+        for day_offset in range(5):   # Sun–Thu (5 Israeli work days)
             day = week_start + timedelta(days=day_offset)
             day_start = day.replace(hour=WORK_START_HOUR, minute=0, second=0, microsecond=0)
             day_end = day.replace(hour=WORK_END_HOUR, minute=0, second=0, microsecond=0)
@@ -252,10 +252,15 @@ def _parse_dt(value: str) -> datetime:
     return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
-def next_monday(from_dt: Optional[datetime] = None) -> datetime:
-    """Return next Monday at 00:00 UTC from the given datetime (or now)."""
+def next_sunday(from_dt: Optional[datetime] = None) -> datetime:
+    """Return next Sunday at 00:00 UTC (start of Israeli work week)."""
     base = from_dt or datetime.utcnow()
-    days_ahead = (7 - base.weekday()) % 7 or 7
+    # weekday(): Monday=0 … Sunday=6
+    days_ahead = (6 - base.weekday()) % 7 or 7
     return (base + timedelta(days=days_ahead)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
+
+
+# Keep old name as alias so existing imports don't break
+next_monday = next_sunday
