@@ -85,7 +85,7 @@ class Planner:
 
         response = self.claude.messages.create(
             model=MODEL,
-            max_tokens=1024,
+            max_tokens=4096,
             tools=[_PRIORITIZE_TOOL],
             tool_choice={"type": "tool", "name": "prioritize_topics"},
             messages=[{
@@ -143,6 +143,7 @@ class Planner:
                 duration_minutes=assembled.duration_minutes,
                 objectives="\n".join(assembled.objectives),
                 source=", ".join(assembled.sources),
+                task_type=assembled.task_type,
                 content=assembled.content,
             )
             lessons_created.append(lesson.lesson_id)

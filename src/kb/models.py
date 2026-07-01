@@ -61,6 +61,7 @@ class Lesson(SQLModel, table=True):
     # lifecycle
     status: str = "Planned"            # Planned | In Progress | Completed | Archived
     lesson_type: str = "PlannedLesson" # CompletedExperience | PlannedLesson | ManualLesson
+    task_type: Optional[str] = None    # reading | video | practice | project | podcast
     completed_date: Optional[date] = None
     created_date: datetime = Field(default_factory=datetime.utcnow)
 

@@ -2,6 +2,7 @@ import json
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
@@ -81,18 +82,22 @@ class Scheduler:
         # 3. Get free slots from Google Calendar
         free_slots = self._get_free_slots(week_start)
 
-        # 4. Allocate each lesson to the earliest fitting slot
+        # 4. Allocate lessons — round-robin across days so the week fills evenly;
+        #    a day gets a second lesson only after every other day has at least one.
         event_ids: list[int] = []
         skipped = 0
+        lessons_per_day: dict[str, int] = {}
 
         for lesson in lessons:
             duration = lesson.duration_minutes or 60
-            slot = _find_slot(free_slots, duration)
+            slot = _find_slot_round_robin(free_slots, duration, lessons_per_day)
             if not slot:
                 skipped += 1
                 continue
 
             lesson_end = slot.start + timedelta(minutes=duration)
+            day_key = slot.start.strftime("%Y-%m-%d")
+            lessons_per_day[day_key] = lessons_per_day.get(day_key, 0) + 1
 
             # Write to Google Calendar
             gc_event_id = self._create_google_event(lesson, slot.start, lesson_end)
@@ -131,18 +136,27 @@ class Scheduler:
         return sorted(lessons, key=lambda l: l.duration_minutes or 60)
 
     def _get_free_slots(self, week_start: datetime) -> list[TimeSlot]:
-        """Query Google Calendar freebusy and return free windows within the user's time blocks."""
-        week_end = week_start + timedelta(days=5)   # Sun–Thu only
+        """Query Google Calendar freebusy and return free windows within the user's time blocks.
+        All block times are in the user's local timezone so 09:00 means 09:00 local, not UTC."""
+        user_tz = ZoneInfo(getattr(self, "_timezone", "UTC"))
+        sunday_date = week_start.date()
+
+        # Query a UTC window wide enough to cover the full local week
+        query_start = datetime(sunday_date.year, sunday_date.month, sunday_date.day,
+                               0, 0, 0, tzinfo=user_tz).astimezone(timezone.utc)
+        query_end = query_start + timedelta(days=5)
 
         result = self.service.freebusy().query(body={
-            "timeMin": _to_rfc3339(week_start),
-            "timeMax": _to_rfc3339(week_end),
+            "timeMin": query_start.isoformat(),
+            "timeMax": query_end.isoformat(),
             "items": [{"id": "primary"}],
         }).execute()
 
         busy_raw = result.get("calendars", {}).get("primary", {}).get("busy", [])
+        # Parse busy times as UTC-aware datetimes
         busy = [
-            (_parse_dt(b["start"]), _parse_dt(b["end"]))
+            (datetime.fromisoformat(b["start"].replace("Z", "+00:00")),
+             datetime.fromisoformat(b["end"].replace("Z", "+00:00")))
             for b in busy_raw
         ]
 
@@ -160,31 +174,39 @@ class Scheduler:
         free_slots: list[TimeSlot] = []
 
         for day_offset in range(5):   # Sun–Thu
-            day = week_start + timedelta(days=day_offset)
+            day_date = sunday_date + timedelta(days=day_offset)
             day_name = DAY_NAMES[day_offset]
 
-            # Default: all blocks if user hasn't set preferences
             selected = availability.get(day_name, list(TIME_BLOCKS.keys()))
 
             for block_name in ("morning", "afternoon", "evening"):
                 if block_name not in selected:
                     continue
                 sh, sm, eh, em = TIME_BLOCKS[block_name]
-                block_start = day.replace(hour=sh, minute=sm, second=0, microsecond=0)
-                block_end   = day.replace(hour=eh, minute=em, second=0, microsecond=0)
 
-                # Busy periods overlapping this block
+                # Block boundaries in user's local timezone
+                block_start = datetime(day_date.year, day_date.month, day_date.day,
+                                       sh, sm, 0, tzinfo=user_tz)
+                block_end   = datetime(day_date.year, day_date.month, day_date.day,
+                                       eh, em, 0, tzinfo=user_tz)
+
+                # Convert to UTC for comparison with busy periods
+                bs_utc = block_start.astimezone(timezone.utc)
+                be_utc = block_end.astimezone(timezone.utc)
+
                 block_busy = sorted(
-                    (max(s, block_start), min(e, block_end))
+                    (max(s, bs_utc), min(e, be_utc))
                     for s, e in busy
-                    if s < block_end and e > block_start
+                    if s < be_utc and e > bs_utc
                 )
 
                 current = block_start
-                for busy_start, busy_end in block_busy:
-                    if busy_start > current:
-                        free_slots.append(TimeSlot(start=current, end=busy_start))
-                    current = max(current, busy_end)
+                for busy_start_utc, busy_end_utc in block_busy:
+                    busy_start_local = busy_start_utc.astimezone(user_tz).replace(second=0, microsecond=0)
+                    busy_end_local   = busy_end_utc.astimezone(user_tz).replace(second=0, microsecond=0)
+                    if busy_start_local > current:
+                        free_slots.append(TimeSlot(start=current, end=busy_start_local))
+                    current = max(current, busy_end_local)
 
                 if current < block_end:
                     free_slots.append(TimeSlot(start=current, end=block_end))
@@ -194,16 +216,28 @@ class Scheduler:
     def _create_google_event(self, lesson: Lesson, start: datetime, end: datetime) -> str:
         """Create a Google Calendar event and return its event ID."""
         tz = getattr(self, "_timezone", "UTC")
+
+        _TYPE_META = {
+            "reading":  ("📖", "2"),   # Sage green
+            "video":    ("🎥", "5"),   # Banana yellow
+            "practice": ("💻", "7"),   # Peacock blue
+            "project":  ("🛠", "11"),  # Tomato red
+            "podcast":  ("🎧", "3"),   # Grape purple
+        }
+        task_type = (lesson.task_type or "practice").lower()
+        emoji, color_id = _TYPE_META.get(task_type, ("💻", "7"))
+
         event_body = {
-            "summary": f"Learn: {lesson.topic}",
+            "summary": f"{emoji} {lesson.topic}",
             "description": (
+                f"Type: {task_type.capitalize()}\n"
                 f"Category: {lesson.category or 'General'}\n"
                 f"Difficulty: {lesson.difficulty or 'N/A'}\n\n"
                 f"Objectives:\n{lesson.objectives or ''}"
             ),
             "start": {"dateTime": _to_rfc3339(start), "timeZone": tz},
             "end": {"dateTime": _to_rfc3339(end), "timeZone": tz},
-            "colorId": "7",  # Peacock blue
+            "colorId": color_id,
         }
         created = self.service.events().insert(calendarId="primary", body=event_body).execute()
         return created.get("id", "")
@@ -215,6 +249,19 @@ class Scheduler:
 
 def _find_slot(slots: list[TimeSlot], duration_minutes: int) -> Optional[TimeSlot]:
     return next((s for s in slots if s.duration_minutes >= duration_minutes), None)
+
+
+def _find_slot_round_robin(
+    slots: list[TimeSlot],
+    duration_minutes: int,
+    lessons_per_day: dict[str, int],
+) -> Optional[TimeSlot]:
+    """Pick the eligible slot on the least-loaded day to spread lessons evenly.
+    Ties broken by earliest start time, so the week fills from Sunday forward."""
+    eligible = [s for s in slots if s.duration_minutes >= duration_minutes]
+    if not eligible:
+        return None
+    return min(eligible, key=lambda s: (lessons_per_day.get(s.start.strftime("%Y-%m-%d"), 0), s.start))
 
 
 def _consume_slot(

@@ -137,7 +137,7 @@ class OnboardingRequest(BaseModel):
     time_availability: Optional[str] = None
     topics_of_interest: Optional[str] = None
     schedule_this_week: bool = True
-    max_lessons_per_cycle: int = 3
+    max_lessons_per_cycle: int = 1
 
 
 class OnboardingResult(BaseModel):
@@ -349,13 +349,13 @@ _FORM_HTML = r"""
     <section>
       <h2>Personal Information</h2>
       <div class="row">
-        <div class="field"><label>First Name *</label><input id="first_name" required></div>
-        <div class="field"><label>Last Name *</label><input id="last_name" required></div>
+        <div class="field"><label>First Name *</label><input id="first_name" value="Noa" required></div>
+        <div class="field"><label>Last Name *</label><input id="last_name" value="Kazes" required></div>
       </div>
       <div class="row">
-        <div class="field"><label>Email *</label><input id="email" type="email" required></div>
+        <div class="field"><label>Email *</label><input id="email" type="email" value="noa.kazes1@gmail.com" required></div>
         <div class="field"><label>Timezone *</label>
-          <input id="timezone" placeholder="e.g. Asia/Jerusalem" required>
+          <input id="timezone" value="Asia/Jerusalem" required>
         </div>
       </div>
     </section>
@@ -364,7 +364,7 @@ _FORM_HTML = r"""
       <h2>Target Role</h2>
       <div class="field">
         <label>What role are you working towards? *</label>
-        <input id="target_role" placeholder="e.g. Data Analyst, ML Engineer, Product Manager" required>
+        <input id="target_role" value="Data Analyst" required>
       </div>
     </section>
 
@@ -449,13 +449,6 @@ _FORM_HTML = r"""
         <label class="style-chip"><input type="checkbox" value="Hands-on"> 💻 Hands-on</label>
         <label class="style-chip"><input type="checkbox" value="Video"> 🎬 Video</label>
         <label class="style-chip"><input type="checkbox" value="Audio"> 🎧 Audio</label>
-      </div>
-    </section>
-
-    <section>
-      <h2>Weekly Hours Available</h2>
-      <div style="max-width:200px">
-        <input id="weekly_hours" type="number" min="1" max="40" placeholder="e.g. 8">
       </div>
     </section>
 
@@ -741,8 +734,7 @@ _FORM_HTML = r"""
       timezone:          document.getElementById('timezone').value.trim(),
       target_role:       document.getElementById('target_role').value.trim(),
       learning_style:    readLearningStyles() || null,
-      weekly_hours:      document.getElementById('weekly_hours').value
-                           ? parseInt(document.getElementById('weekly_hours').value) : null,
+      weekly_hours:      null,
       time_availability: JSON.stringify(readAvailability()),
       topics_of_interest: null,
       schedule_this_week:document.getElementById('schedule_this_week').checked,
@@ -763,6 +755,7 @@ _FORM_HTML = r"""
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Server error');
 
+      clearDraft();
       resultEl.className = 'success';
       resultEl.innerHTML = `
         <strong>✓ Onboarding complete!</strong><br><br>
@@ -788,6 +781,65 @@ _FORM_HTML = r"""
   function escHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
+
+  // ─── localStorage save / restore ──────────────────────────────────────────
+  const LS_KEY = 'onboarding_draft';
+  const SAVED_FIELDS = ['first_name','last_name','email','timezone','target_role'];
+
+  function saveDraft() {
+    const draft = {};
+    SAVED_FIELDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) draft[id] = el.value;
+    });
+    // Learning style checkboxes
+    draft.learning_styles = [...document.querySelectorAll('.style-chip input:checked')]
+      .map(el => el.value);
+    // Time availability grid
+    draft.availability = {};
+    document.querySelectorAll('.avail').forEach(cb => {
+      const day = cb.dataset.day;
+      if (!draft.availability[day]) draft.availability[day] = {};
+      draft.availability[day][cb.dataset.block] = cb.checked;
+    });
+    localStorage.setItem(LS_KEY, JSON.stringify(draft));
+  }
+
+  function restoreDraft() {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw);
+      SAVED_FIELDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && draft[id] !== undefined) el.value = draft[id];
+      });
+      if (draft.learning_styles) {
+        document.querySelectorAll('.style-chip input').forEach(cb => {
+          cb.checked = draft.learning_styles.includes(cb.value);
+        });
+      }
+      if (draft.availability) {
+        document.querySelectorAll('.avail').forEach(cb => {
+          const day = cb.dataset.day;
+          const block = cb.dataset.block;
+          if (draft.availability[day] && draft.availability[day][block] !== undefined)
+            cb.checked = draft.availability[day][block];
+        });
+      }
+    } catch(e) {}
+  }
+
+  function clearDraft() {
+    localStorage.removeItem(LS_KEY);
+  }
+
+  // Auto-save on any input change
+  document.addEventListener('input', saveDraft);
+  document.addEventListener('change', saveDraft);
+
+  // Restore on load
+  restoreDraft();
 </script>
 </body>
 </html>

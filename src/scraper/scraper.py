@@ -21,15 +21,24 @@ class Exercise(BaseModel):
     type: str  # coding | written | project | quiz
 
 
+class Resource(BaseModel):
+    title: str
+    url: str
+    resource_type: str  # article | video | course | docs | tool
+
+
 class AssembledLesson(BaseModel):
     topic: str
     category: str
     difficulty: str          # Beginner | Intermediate | Advanced
     duration_minutes: int
+    task_type: str           # reading | video | practice | project | podcast
     objectives: list[str]
+    action_steps: list[str]  # concrete things to DO, with links where relevant
+    resources: list[Resource]
     content: str             # Full lesson in markdown
     exercises: list[Exercise]
-    review_questions: list[str]
+    review_questions: list[str] = []
     sources: list[str]
 
 
@@ -54,9 +63,9 @@ class Scraper:
         """Search for material on a topic and assemble it into a structured lesson."""
         results = self.tavily.search(
             query=f"{topic} tutorial guide learn",
-            search_depth="advanced",
-            max_results=5,
-            include_raw_content=True,
+            search_depth="basic",
+            max_results=3,
+            include_raw_content=False,
         )
 
         search_context = "\n\n".join(
@@ -67,10 +76,13 @@ class Scraper:
         if not search_context.strip():
             raise ValueError(f"No search results found for topic: {topic}")
 
+        raw_results = results.get("results", [])
+        sources = [r["url"] for r in raw_results]
+
         user_message = (
             f"Topic: {topic}\n"
             + (f"Learning context: {context}\n" if context else "")
-            + f"\nResearch material:\n{search_context}"
+            + f"\nResearch material (use these URLs as direct resources):\n{search_context}"
         )
 
         response = self.claude.messages.create(
@@ -79,7 +91,10 @@ class Scraper:
             system=(
                 "You are an expert instructional designer. Given research material, "
                 "create a complete, well-structured lesson for a professional learner. "
-                "Use markdown for the content. Be practical and concise."
+                "Include concrete action steps the learner must perform (e.g. 'Watch X at [url]', "
+                "'Complete this Kaggle notebook', 'Read section Y'). "
+                "Always include the real URLs from the research material as resources. "
+                "Use markdown for the content. Be practical and specific."
             ),
             tools=[_LESSON_TOOL],
             tool_choice={"type": "tool", "name": "create_lesson"},
@@ -87,13 +102,12 @@ class Scraper:
         )
 
         tool_use = next(b for b in response.content if b.type == "tool_use")
-        sources = [r["url"] for r in results.get("results", [])]
-
         data = tool_use.input
         return AssembledLesson(
             topic=topic,
             sources=sources,
             exercises=[Exercise(**e) for e in data.pop("exercises", [])],
+            resources=[Resource(**r) for r in data.pop("resources", [])],
             **data,
         )
 
@@ -153,17 +167,40 @@ _LESSON_TOOL = {
                 "type": "integer",
                 "description": "Estimated minutes to complete the lesson",
             },
+            "task_type": {
+                "type": "string",
+                "enum": ["reading", "video", "practice", "project", "podcast"],
+                "description": "Primary activity type: reading=articles/docs, video=watch tutorials, practice=coding exercises, project=build something, podcast=listen",
+            },
             "objectives": {
                 "type": "array",
                 "items": {"type": "string"},
                 "description": "2–4 clear learning objectives",
             },
+            "action_steps": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "3–5 concrete steps the learner must perform, e.g. 'Watch [Title] at https://...', 'Complete exercise X', 'Read section Y at https://...'",
+            },
+            "resources": {
+                "type": "array",
+                "description": "2–4 direct links from the research material",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "url": {"type": "string"},
+                        "resource_type": {
+                            "type": "string",
+                            "enum": ["article", "video", "course", "docs", "tool"],
+                        },
+                    },
+                    "required": ["title", "url", "resource_type"],
+                },
+            },
             "content": {
                 "type": "string",
-                "description": (
-                    "Full lesson content in markdown. Include explanations, "
-                    "examples, and code snippets where relevant."
-                ),
+                "description": "Full lesson content in markdown. Include explanations, examples, and code snippets. Reference the resources inline with markdown links.",
             },
             "exercises": {
                 "type": "array",
@@ -173,10 +210,7 @@ _LESSON_TOOL = {
                     "properties": {
                         "title": {"type": "string"},
                         "description": {"type": "string"},
-                        "type": {
-                            "type": "string",
-                            "enum": ["coding", "written", "project", "quiz"],
-                        },
+                        "type": {"type": "string", "enum": ["coding", "written", "project", "quiz"]},
                     },
                     "required": ["title", "description", "type"],
                 },
@@ -188,8 +222,8 @@ _LESSON_TOOL = {
             },
         },
         "required": [
-            "category", "difficulty", "duration_minutes",
-            "objectives", "content", "exercises", "review_questions",
+            "category", "difficulty", "duration_minutes", "task_type",
+            "objectives", "action_steps", "resources", "content", "exercises",
         ],
     },
 }
