@@ -42,3 +42,7 @@ Legend: ✅ Done & tested · 🔄 Built (code written, not yet tested) · 📄 D
 | 36 | Scheduler | Calendar event display by type — color + emoji per task type (📖📗🎥💻🛠🎧) | ✅ Done |
 | 37 | Scheduler | Fix timezone bug — blocks were in UTC (09:00 UTC = 12:00 Jerusalem); now uses user's local timezone | ✅ Done |
 | 38 | Data Model | DB migration — added task_type column to lessons table | ✅ Done |
+| 39 | Scheduler | LinkedIn writing blocks — 2 × 2h per week in Learning Schedule calendar | ✅ Done |
+| 40 | Scraper | Generate video + podcast format lessons for learning variety | ❌ Planned |
+| 41 | Scheduler | Fix calendar conflict bug — block ALL events (not just Busy) via events.list() | ✅ Done |
+| 42 | Scheduler | All events go to dedicated "Learning Schedule" Google Calendar | ✅ Done |
