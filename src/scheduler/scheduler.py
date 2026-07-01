@@ -225,29 +225,39 @@ class Scheduler:
                                0, 0, 0, tzinfo=user_tz).astimezone(timezone.utc)
         query_end = query_start + timedelta(days=5)
 
-        # Fetch ALL events from primary calendar — blocks free-status events too
+        # Query all calendars the user owns or can write to (excludes read-only
+        # subscriptions like holidays/birthdays that would over-block the schedule).
+        # Also excludes our own Learning Schedule calendar.
+        cal_list = self.service.calendarList().list().execute()
+        calendar_ids = [
+            cal["id"] for cal in cal_list.get("items", [])
+            if cal.get("summary") != LEARNING_CALENDAR_NAME
+            and cal.get("accessRole") in ("owner", "writer")
+        ]
+
         busy_raw: list[tuple[datetime, datetime]] = []
-        page_token = None
-        while True:
-            result = self.service.events().list(
-                calendarId="primary",
-                timeMin=query_start.isoformat(),
-                timeMax=query_end.isoformat(),
-                singleEvents=True,
-                orderBy="startTime",
-                pageToken=page_token,
-            ).execute()
-            for event in result.get("items", []):
-                s = event.get("start", {})
-                e = event.get("end", {})
-                if "dateTime" in s:   # skip all-day events
-                    busy_raw.append((
-                        datetime.fromisoformat(s["dateTime"].replace("Z", "+00:00")),
-                        datetime.fromisoformat(e["dateTime"].replace("Z", "+00:00")),
-                    ))
-            page_token = result.get("nextPageToken")
-            if not page_token:
-                break
+        for cal_id in calendar_ids:
+            page_token = None
+            while True:
+                result = self.service.events().list(
+                    calendarId=cal_id,
+                    timeMin=query_start.isoformat(),
+                    timeMax=query_end.isoformat(),
+                    singleEvents=True,
+                    orderBy="startTime",
+                    pageToken=page_token,
+                ).execute()
+                for event in result.get("items", []):
+                    s = event.get("start", {})
+                    e = event.get("end", {})
+                    if "dateTime" in s:   # skip all-day events
+                        busy_raw.append((
+                            datetime.fromisoformat(s["dateTime"].replace("Z", "+00:00")),
+                            datetime.fromisoformat(e["dateTime"].replace("Z", "+00:00")),
+                        ))
+                page_token = result.get("nextPageToken")
+                if not page_token:
+                    break
 
         # Load user time-block preferences
         user = crud.get_user(self.session)
