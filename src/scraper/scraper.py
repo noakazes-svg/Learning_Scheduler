@@ -59,10 +59,26 @@ class Scraper:
         self.tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
         self.claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-    def assemble_lesson(self, topic: str, context: str = "") -> AssembledLesson:
-        """Search for material on a topic and assemble it into a structured lesson."""
+    def assemble_lesson(
+        self,
+        topic: str,
+        context: str = "",
+        preferred_type: Optional[str] = None,
+    ) -> AssembledLesson:
+        """Search for material on a topic and assemble it into a structured lesson.
+
+        preferred_type: 'video' | 'podcast' | 'practice' | 'project' | 'reading'
+        When provided, shapes the search query and system prompt to produce content
+        in that format. If omitted, Claude chooses the best format.
+        """
+        _SEARCH_QUERIES = {
+            "video":   f"{topic} youtube tutorial video course watch",
+            "podcast": f"{topic} overview introduction concepts explained in-depth",
+        }
+        search_query = _SEARCH_QUERIES.get(preferred_type or "", f"{topic} tutorial guide learn")
+
         results = self.tavily.search(
-            query=f"{topic} tutorial guide learn",
+            query=search_query,
             search_depth="basic",
             max_results=3,
             include_raw_content=False,
@@ -79,6 +95,40 @@ class Scraper:
         raw_results = results.get("results", [])
         sources = [r["url"] for r in raw_results]
 
+        _TYPE_INSTRUCTIONS = {
+            "video": (
+                "This is a VIDEO lesson. "
+                "action_steps must all be in the format 'Watch: [Title] at [url]'. "
+                "Find and link to real YouTube tutorials or online courses from the research material. "
+                "The content section should include timestamps or chapters to focus on, "
+                "and a note-taking framework ('What to look for'). "
+                "Set task_type to 'video'. Duration 45–90 minutes."
+            ),
+            "podcast": (
+                "This is a PODCAST/AUDIO lesson. "
+                "The 'content' field is the SOURCE DOCUMENT that will be uploaded to NotebookLM "
+                "to auto-generate an audio podcast — so fill it with rich, narrative, "
+                "conversational text covering the topic in depth (like a magazine feature or "
+                "book chapter). The content MUST be long and detailed — at least 800 words. "
+                "Do NOT include 'open terminal' or coding steps in the content. "
+                "action_steps should say: 'Upload this lesson file to notebooklm.google.com "
+                "and click Generate Audio Overview to create your podcast'. "
+                "Objectives and review_questions should be conceptual. "
+                "Set task_type to 'podcast'. Duration 35–45 minutes."
+            ),
+        }
+        type_instruction = _TYPE_INSTRUCTIONS.get(preferred_type or "", "")
+
+        system_prompt = (
+            "You are an expert instructional designer. Given research material, "
+            "create a complete, well-structured lesson for a professional learner. "
+            "Include concrete action steps the learner must perform (e.g. 'Watch X at [url]', "
+            "'Complete this Kaggle notebook', 'Read section Y'). "
+            "Always include the real URLs from the research material as resources. "
+            "Use markdown for the content. Be practical and specific."
+            + (f"\n\n{type_instruction}" if type_instruction else "")
+        )
+
         user_message = (
             f"Topic: {topic}\n"
             + (f"Learning context: {context}\n" if context else "")
@@ -88,14 +138,7 @@ class Scraper:
         response = self.claude.messages.create(
             model=MODEL,
             max_tokens=4096,
-            system=(
-                "You are an expert instructional designer. Given research material, "
-                "create a complete, well-structured lesson for a professional learner. "
-                "Include concrete action steps the learner must perform (e.g. 'Watch X at [url]', "
-                "'Complete this Kaggle notebook', 'Read section Y'). "
-                "Always include the real URLs from the research material as resources. "
-                "Use markdown for the content. Be practical and specific."
-            ),
+            system=system_prompt,
             tools=[_LESSON_TOOL],
             tool_choice={"type": "tool", "name": "create_lesson"},
             messages=[{"role": "user", "content": user_message}],

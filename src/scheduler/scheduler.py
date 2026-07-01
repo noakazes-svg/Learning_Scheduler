@@ -316,6 +316,16 @@ class Scheduler:
         task_type = (lesson.task_type or "practice").lower()
         emoji, color_id = _TYPE_META.get(task_type, ("💻", "7"))
 
+        if task_type == "podcast":
+            extra = (
+                "\n\n📻 How to listen:\n"
+                f"1. Open: data/lesson_content/lesson_{lesson.lesson_id}.md\n"
+                "2. Upload that file to notebooklm.google.com\n"
+                "3. Click 'Generate Audio Overview' → listen to your podcast"
+            )
+        else:
+            extra = ""
+
         event_body = {
             "summary": f"{emoji} {lesson.topic}",
             "description": (
@@ -323,6 +333,7 @@ class Scheduler:
                 f"Category: {lesson.category or 'General'}\n"
                 f"Difficulty: {lesson.difficulty or 'N/A'}\n\n"
                 f"Objectives:\n{lesson.objectives or ''}"
+                + extra
             ),
             "start": {"dateTime": _to_rfc3339(start), "timeZone": self._timezone},
             "end":   {"dateTime": _to_rfc3339(end),   "timeZone": self._timezone},
